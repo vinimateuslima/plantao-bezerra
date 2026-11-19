@@ -577,7 +577,7 @@ const actions = {
     openDialog(`<div class="dlg-body"><h2>⚠️ ${esc(m.name)}</h2><p style="white-space:pre-wrap">${esc(m.alert)}</p>
       <div class="dlg-actions"><button class="btn primary" data-action="close">Entendi</button></div></div>`, true);
   },
-  'med-info': el => el.closest('.info').classList.toggle('open'),
+  'med-info': el => { const i = el.closest('.info'); i.classList.toggle('open'); placeTip(i); },
   'med-new': () => medDialog(null),
   'med-edit': el => { const m = db.meds.find(x => x.id === el.dataset.id); if (m) medDialog(m); },
   'med-del': async el => {
@@ -598,6 +598,20 @@ const actions = {
   export: exportBackup,
   import: () => { $('#file-import').value = ''; $('#file-import').click(); }
 };
+
+/* Tooltip "?": posição fixa calculada para nunca ultrapassar as bordas da tela. */
+function placeTip(info) {
+  const tip = info.querySelector('.tip'), b = info.querySelector('.info-btn').getBoundingClientRect();
+  const w = tip.offsetWidth, h = tip.offsetHeight, vw = document.documentElement.clientWidth, m = 8;
+  if (!w) return;
+  const cx = b.left + b.width / 2;
+  tip.style.left = Math.max(m, Math.min(cx - w / 2, vw - w - m)) + 'px';
+  const below = b.bottom + 8, above = b.top - h - 8;
+  tip.style.top = (below + h > window.innerHeight - m && above > m ? above : below) + 'px';
+}
+document.addEventListener('mouseover', e => { const i = e.target.closest('.info'); if (i) placeTip(i); });
+document.addEventListener('focusin', e => { const i = e.target.closest('.info'); if (i) placeTip(i); });
+window.addEventListener('scroll', () => document.querySelectorAll('.info.open').forEach(x => x.classList.remove('open')), { passive: true });
 
 document.addEventListener('click', e => {
   document.querySelectorAll('.info.open').forEach(x => { if (!x.contains(e.target)) x.classList.remove('open'); });
