@@ -1,0 +1,56 @@
+{
+  "_ajuda": "Edite este arquivo para mudar a lista. periodo: manha | tarde | noite (manha e tarde = plantao diurno, noite = plantao noturno). horario: HH:MM ou vazio. icone e opcional (padrao 💊). Opcional: plantao = D | N | A (A = diurno e noturno) para forcar o plantao. Opcional: alerta = texto que aparece num modal ao tocar no icone de aviso do remedio. Opcional: generico (nome do principio ativo) e paraQueServe (resumo) = aparecem no tooltip do icone de interrogacao.",
+
+  "medicamentos": [
+    { "nome": "Omeprazol", "horario": "06:00", "dose": "2cp", "periodo": "manha",
+      "generico": "Omeprazol", "paraQueServe": "Reduz a produção de ácido no estômago. Protege contra gastrite, refluxo e úlcera." },
+    { "nome": "Budesonida", "horario": "07:00", "dose": "", "periodo": "manha", "obs": "2 jatos em cada nariz",
+      "generico": "Budesonida", "paraQueServe": "Corticoide nasal. Reduz a inflamação e o inchaço do nariz (rinite)." },
+    { "nome": "Losartana", "horario": "08:00", "dose": "1cp", "periodo": "manha",
+      "generico": "Losartana potássica", "paraQueServe": "Controla a pressão alta e protege o coração e os rins." },
+    { "nome": "NeovangyMR", "horario": "08:00", "dose": "1cp", "periodo": "manha",
+      "generico": "Trimetazidina", "paraQueServe": "Antianginoso. Protege o músculo do coração e ajuda a reduzir crises de angina (dor no peito)." },
+    { "nome": "Colchicina", "horario": "09:00", "dose": "1cp", "periodo": "manha",
+      "generico": "Colchicina", "paraQueServe": "Anti-inflamatório usado para tratar e prevenir crises de gota." },
+    { "nome": "Pomada de dexametasona", "horario": "", "dose": "", "periodo": "manha", "obs": "no dedo após o banho",
+      "generico": "Dexametasona (uso tópico)", "paraQueServe": "Corticoide para a pele. Reduz inflamação, vermelhidão e coceira." },
+    { "nome": "Pomada na barriga", "horario": "", "dose": "", "periodo": "manha", "icone": "🧴" },
+
+    { "nome": "Clopidogrel", "horario": "14:00", "dose": "1cp", "periodo": "tarde",
+      "generico": "Clopidogrel", "paraQueServe": "Antiplaquetário. Evita a formação de coágulos, prevenindo infarto e AVC." },
+    { "nome": "AAS", "horario": "14:00", "dose": "1cp", "periodo": "tarde",
+      "generico": "Ácido acetilsalicílico", "paraQueServe": "Em dose baixa, deixa o sangue menos “grudento” e previne coágulos no coração e no cérebro." },
+
+    { "nome": "Bisoprolol", "horario": "18:00", "dose": "1cp", "periodo": "noite",
+      "generico": "Bisoprolol", "paraQueServe": "Betabloqueador. Reduz a frequência do coração e a pressão, protegendo o coração." },
+    { "nome": "Anlodipino 5mg", "horario": "18:00", "dose": "2cp", "periodo": "noite",
+      "generico": "Anlodipino", "paraQueServe": "Relaxa os vasos sanguíneos. Usado para controlar a pressão alta." },
+    { "nome": "Alopurinol", "horario": "18:00", "dose": "1cp", "periodo": "noite",
+      "generico": "Alopurinol", "paraQueServe": "Reduz o ácido úrico no sangue. Previne crises de gota.",
+      "alerta": "Se o Alopurinol não vier junto com os outros remédios deste horário, administre o comprimido da caixa dele. Na dúvida, pergunte no grupo." },
+    { "nome": "Budesonida", "horario": "19:00", "dose": "", "periodo": "noite", "obs": "2 jatos em cada nariz",
+      "generico": "Budesonida", "paraQueServe": "Corticoide nasal. Reduz a inflamação e o inchaço do nariz (rinite)." },
+    { "nome": "NeovangyMR", "horario": "20:00", "dose": "1cp", "periodo": "noite",
+      "generico": "Trimetazidina", "paraQueServe": "Antianginoso. Protege o músculo do coração e ajuda a reduzir crises de angina (dor no peito)." },
+    { "nome": "Enoxaparina", "horario": "21:00", "dose": "", "periodo": "noite", "icone": "💉",
+      "generico": "Enoxaparina sódica", "paraQueServe": "Anticoagulante injetável. Previne e trata trombose (coágulos nas veias)." },
+    { "nome": "Atorvastatina 10mg", "horario": "21:00", "dose": "4cp", "periodo": "noite",
+      "generico": "Atorvastatina cálcica", "paraQueServe": "Estatina. Reduz o colesterol e o risco de infarto e AVC." },
+    { "nome": "Losartana", "horario": "21:00", "dose": "1cp", "periodo": "noite",
+      "generico": "Losartana potássica", "paraQueServe": "Controla a pressão alta e protege o coração e os rins." },
+    { "nome": "Dexclorfeniramina", "horario": "22:00", "dose": "1cp", "periodo": "noite",
+      "generico": "Dexclorfeniramina", "paraQueServe": "Anti-histamínico. Alivia alergia e coceira; pode causar sono." },
+    { "nome": "Colchicina", "horario": "22:00", "dose": "1cp", "periodo": "noite",
+      "generico": "Colchicina", "paraQueServe": "Anti-inflamatório usado para tratar e prevenir crises de gota." },
+    { "nome": "Quetiapina", "horario": "22:00", "dose": "1/2cp", "periodo": "noite", "obs": "se insônia",
+      "generico": "Quetiapina", "paraQueServe": "Antipsicótico. Em dose baixa, ajuda no sono e na agitação." }
+  ],
+
+  "afericoes": [
+    { "nome": "Pressão arterial", "unidade": "" },
+    { "nome": "Glicose",          "unidade": "mg/dL" },
+    { "nome": "Saturação",        "unidade": "%" },
+    { "nome": "Batimentos",       "unidade": "bpm" },
+    { "nome": "Temperatura",      "unidade": "°C" }
+  ]
+}

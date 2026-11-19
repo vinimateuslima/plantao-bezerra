@@ -75,6 +75,16 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);border-co
 .med-top{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
 .time{background:var(--brand-soft);color:var(--brand);font-weight:800;border-radius:10px;padding:6px 10px;white-space:nowrap}
 .med-info{display:flex;flex-direction:column;min-width:0}
+.alert-btn{background:var(--pen-soft);color:var(--pen);border:0;border-radius:8px;min-width:32px;min-height:32px;padding:0;margin-left:4px;vertical-align:middle;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.info{position:relative;display:inline-block;vertical-align:middle;margin-left:4px;font-weight:400}
+.info-btn{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--muted);background:transparent;color:var(--muted);font-weight:700;font-size:.8rem;line-height:1;padding:0;cursor:help}
+.info-btn:hover,.info-btn:focus-visible,.info.open .info-btn{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.tip{display:none;position:absolute;left:0;top:calc(100% + 8px);z-index:20;width:min(270px,calc(100vw - 90px));padding:10px 12px;border-radius:12px;
+  background:#0b1f24;color:#fff;font-size:.85rem;line-height:1.35;box-shadow:0 8px 24px rgba(0,0,0,.35);text-align:left}
+.tip b{display:block;margin-bottom:2px}
+.med-info .tip span{display:block;color:#d3e2e6;font-size:.85rem}
+.med-info .info{font-size:1rem}
+.info:hover .tip,.info:focus-within .tip,.info.open .tip{display:block}
 .med-info strong{font-size:1.05rem;overflow-wrap:anywhere}
 .med-info span,.med-info em{font-size:.9rem;color:var(--muted);font-style:normal}
 .states{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}

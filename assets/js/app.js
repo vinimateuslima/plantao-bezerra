@@ -23,6 +23,7 @@ const ICONS = {
   ajustes:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/>',
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/>',
+  alert:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
   share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
   report:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>'
 };
@@ -52,66 +53,90 @@ const STATES = { ok: { icon: '✅', label: 'Administrado' }, no: { icon: '❌', 
 
 const shiftKey = (date, sh) => `${date}|${sh}`;
 
-function defaultData() {
-  // med(nome, horário, dose, período, observação, ícone)  — manhã/tarde = plantão diurno, noite = noturno
-  const med = (name, time, dose, period, notes = '', icon = '💊') =>
-    ({ id: uid(), name, time, dose, notes, period, icon, shift: period === 'noite' ? 'N' : 'D' });
-  const type = (name, unit) => ({ id: uid(), name, unit });
-  return {
-    version: 1, lastResponsible: '', shifts: {},
-    meds: [
-      // Manhã
-      med('Omeprazol', '06:00', '2cp', 'manha'),
-      med('Bisacodil', '06:00', '2cp', 'manha'),
-      med('Budesonida', '07:00', '', 'manha', '2 jatos em cada nariz'),
-      med('Losartana', '08:00', '1cp', 'manha'),
-      med('Zisque', '08:00', '1cp', 'manha'),
-      med('Colchicina', '09:00', '1cp', 'manha'),
-      med('Pomada de dexametasona', '', '', 'manha', 'no dedo após o banho'),
-      med('Pomada na barriga', '', '', 'manha', '', '🧴'),
-      // Tarde
-      med('Clopidogrel', '14:00', '1cp', 'tarde'),
-      med('AAS', '14:00', '1cp', 'tarde'),
-      // Noite
-      med('Bisoprolol', '18:00', '1cp', 'noite'),
-      med('Anlodipino 5mg', '18:00', '2cp', 'noite'),
-      med('Alopurinol', '18:00', '1cp', 'noite'),
-      med('Budesonida', '19:00', '', 'noite', '2 jatos em cada nariz'),
-      med('Zisque', '20:00', '1cp', 'noite'),
-      med('Enoxaparina', '21:00', '', 'noite', '', '💉'),
-      med('Atorvastatina 10mg', '21:00', '4cp', 'noite'),
-      med('Losartana', '21:00', '1cp', 'noite'),
-      med('Dexclorfeniramina', '22:00', '1cp', 'noite'),
-      med('Colchicina', '22:00', '1cp', 'noite'),
-      med('Quetiapina', '22:00', '1/2cp', 'noite', 'se insônia'),
-      med('Bisacodil', '22:00', '1cp', 'noite', 'laxante')
-    ],
-    types: [
-      type('Pressão arterial', ''), type('Glicose', 'mg/dL'), type('Saturação', '%'),
-      type('Batimentos', 'bpm'), type('Temperatura', '°C')
-    ]
-  };
+/* base = lista vinda do JSON (fixa). ov = alterações feitas neste aparelho por cima dela:
+   edits (itens editados, por id), hidden (ids excluídos) e custom (itens criados aqui). */
+const emptyOv = () => ({ edits: {}, hidden: [], custom: [] });
+function emptyData() {
+  return { version: 1, lastResponsible: '', shifts: {}, meds: [], types: [],
+    base: { meds: [], types: [] }, ov: { meds: emptyOv(), types: emptyOv() } };
+}
+function applyOv(base, ov) {
+  return [...base.filter(x => !ov.hidden.includes(x.id)).map(x => ov.edits[x.id] ? { ...x, ...ov.edits[x.id] } : x), ...ov.custom];
+}
+function rebuildLists(o) { o.meds = applyOv(o.base.meds, o.ov.meds); o.types = applyOv(o.base.types, o.ov.types); }
+
+/* ---------- Catálogo (data/medicamentos.json) ----------
+   A lista de medicamentos e de tipos de aferição vem desse arquivo. */
+const CATALOG_URL = 'data/medicamentos.json';
+let catalogError = '';
+const slug = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+function uniqueId(base, used) { let id = base, n = 2; while (used.has(id)) id = `${base}-${n++}`; used.add(id); return id; }
+
+function parseCatalog(j) {
+  const usedM = new Set(), usedT = new Set();
+  const meds = arr(j.medicamentos).filter(m => m && str(m.nome).trim()).map(m => {
+    const period = PERIODS.includes(m.periodo) ? m.periodo : 'manha';
+    const time = /^\d{1,2}:\d{2}$/.test(str(m.horario)) ? m.horario.padStart(5, '0') : '';
+    return {
+      id: uniqueId(`m-${period}-${time || 'sh'}-${slug(m.nome)}`, usedM), name: m.nome.trim(), time, dose: str(m.dose).trim(),
+      notes: str(m.obs).trim(), icon: str(m.icone) || '💊', alert: str(m.alerta).trim(), generic: str(m.generico).trim(), use: str(m.paraQueServe).trim(), period,
+      shift: ['D', 'N', 'A'].includes(m.plantao) ? m.plantao : (period === 'noite' ? 'N' : 'D')
+    };
+  });
+  const types = arr(j.afericoes).filter(t => t && str(t.nome).trim())
+    .map(t => ({ id: uniqueId(`t-${slug(t.nome)}`, usedT), name: t.nome.trim(), unit: str(t.unidade).trim() }));
+  return { meds, types };
+}
+
+async function loadCatalog() {
+  try {
+    const r = await fetch(CATALOG_URL, { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    const c = parseCatalog(await r.json());
+    db.base = c; rebuildLists(db); catalogError = ''; save();
+  } catch (e) {
+    console.warn('Falha ao ler ' + CATALOG_URL, e);
+    catalogError = location.protocol === 'file:'
+      ? 'Não foi possível ler data/medicamentos.json ao abrir o arquivo direto. Abra o app por um servidor (ex.: Vercel ou "python -m http.server").'
+      : 'Não foi possível carregar data/medicamentos.json.';
+    if (db.base.meds.length) catalogError += ' Usando a última lista salva neste aparelho.';
+  }
+}
+
+const normMed = m => (!m || !str(m.name).trim()) ? null : ({
+  id: str(m.id) || uid(), name: m.name.trim(), time: /^\d{2}:\d{2}$/.test(m.time) ? m.time : '',
+  dose: str(m.dose), notes: str(m.notes), icon: str(m.icon) || '💊', alert: str(m.alert), generic: str(m.generic), use: str(m.use),
+  period: PERIODS.includes(m.period) ? m.period : 'manha', shift: ['D', 'N', 'A'].includes(m.shift) ? m.shift : 'D'
+});
+const normType = t => (!t || !str(t.name).trim()) ? null : ({ id: str(t.id) || uid(), name: t.name.trim(), unit: str(t.unit) });
+const MED_KEYS = ['name', 'time', 'dose', 'notes', 'period', 'shift', 'icon', 'alert', 'generic', 'use'], TYPE_KEYS = ['name', 'unit'];
+function normOv(o, fn, keys) {
+  o = o && typeof o === 'object' ? o : {};
+  const edits = {};
+  Object.entries(o.edits && typeof o.edits === 'object' ? o.edits : {}).forEach(([k, v]) => {
+    if (!v || typeof v !== 'object') return;
+    const e = {}; keys.forEach(f => { if (typeof v[f] === 'string') e[f] = v[f]; });
+    if (Object.keys(e).length) edits[k] = e;
+  });
+  return { edits, hidden: arr(o.hidden).filter(x => typeof x === 'string'), custom: arr(o.custom).map(fn).filter(Boolean) };
 }
 
 /* Valida/normaliza qualquer dado vindo do disco ou de um backup. */
 function normalize(d) {
-  const out = { version: 1, lastResponsible: str(d.lastResponsible), meds: [], types: [], shifts: {} };
-  arr(d.meds).forEach(m => {
-    if (!m || !str(m.name).trim()) return;
-    out.meds.push({
-      id: str(m.id) || uid(), name: m.name.trim(), time: /^\d{2}:\d{2}$/.test(m.time) ? m.time : '',
-      dose: str(m.dose), notes: str(m.notes), icon: str(m.icon) || '💊',
-      period: PERIODS.includes(m.period) ? m.period : 'manha', shift: ['D', 'N', 'A'].includes(m.shift) ? m.shift : 'D'
-    });
-  });
-  arr(d.types).forEach(t => { if (t && str(t.name).trim()) out.types.push({ id: str(t.id) || uid(), name: t.name.trim(), unit: str(t.unit) }); });
+  const b = d.base && typeof d.base === 'object' ? d.base : {}, ov = d.ov && typeof d.ov === 'object' ? d.ov : {};
+  const out = {
+    version: 1, lastResponsible: str(d.lastResponsible), meds: [], types: [], shifts: {},
+    base: { meds: arr(b.meds).map(normMed).filter(Boolean), types: arr(b.types).map(normType).filter(Boolean) },
+    ov: { meds: normOv(ov.meds, normMed, MED_KEYS), types: normOv(ov.types, normType, TYPE_KEYS) }
+  };
+  rebuildLists(out);
   Object.values(d.shifts && typeof d.shifts === 'object' ? d.shifts : {}).forEach(s => {
     if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s.date) || !SHIFTS[s.shift]) return;
     const ns = { key: shiftKey(s.date, s.shift), date: s.date, shift: s.shift, responsible: str(s.responsible), notes: str(s.notes), meds: [], measures: [] };
     arr(s.meds).forEach(e => {
       if (!e || !str(e.name)) return;
       ns.meds.push({
-        medId: str(e.medId), name: e.name, time: /^\d{2}:\d{2}$/.test(e.time) ? e.time : '', dose: str(e.dose), notes: str(e.notes), icon: str(e.icon) || '💊',
+        medId: str(e.medId), name: e.name, time: /^\d{2}:\d{2}$/.test(e.time) ? e.time : '', dose: str(e.dose), notes: str(e.notes), icon: str(e.icon) || '💊', alert: str(e.alert), generic: str(e.generic), use: str(e.use),
         period: PERIODS.includes(e.period) ? e.period : 'manha', state: STATES[e.state] ? e.state : 'pending'
       });
     });
@@ -130,7 +155,7 @@ function loadData() {
     const raw = localStorage.getItem(KEY);
     if (raw) return normalize(JSON.parse(raw));
   } catch (e) { storageOk = false; console.warn('Falha ao ler dados', e); }
-  return defaultData();
+  return emptyData();
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(db)); storageOk = true; }
@@ -144,7 +169,7 @@ let tab = 'plantao';
 let draft = null; // plantão ainda vazio (só vira registro ao ser alterado)
 
 /* ---------- 3. Regras do plantão ---------- */
-const snapMed = m => ({ name: m.name, time: m.time, dose: m.dose, notes: m.notes, icon: m.icon, period: m.period });
+const snapMed = m => ({ name: m.name, time: m.time, dose: m.dose, notes: m.notes, icon: m.icon, alert: m.alert, generic: m.generic, use: m.use, period: m.period });
 
 function newShift(date, sh) { return { key: shiftKey(date, sh), date, shift: sh, responsible: db.lastResponsible, notes: '', meds: [], measures: [] }; }
 
@@ -206,7 +231,7 @@ function buildReport(s) {
     L.push('', `*${PERIOD_LABEL[g.period].toUpperCase()}*`);
     g.items.forEach(e => {
       const h = fmtHour(e.time), dose = e.dose.trim(), note = e.notes.trim();
-      const what = dose ? `${dose} de ${e.name.toLowerCase()}` : e.name;
+      const what = dose ? `${dose} de ${/^[A-ZÀ-Ú][^A-ZÀ-Ú]*$/.test(e.name) ? e.name.toLowerCase() : e.name}` : e.name;
       const mark = e.state === 'pending' ? '' : ' ' + STATES[e.state].icon;
       L.push(`* ${e.icon} ${h ? h + ' - ' : ''}${what}${note ? (dose ? ' (' + note + ')' : ' - ' + note) : ''}${mark}`);
     });
@@ -225,12 +250,20 @@ function buildReport(s) {
 }
 
 /* ---------- 5. Telas ---------- */
+/* Ícone "?" com tooltip: princípio ativo + para que serve (campos generico / paraQueServe do JSON). */
+function infoHTML(e) {
+  if (!e.generic && !e.use) return '';
+  return ` <span class="info"><button type="button" class="info-btn" data-action="med-info" aria-label="O que é ${esc(e.name)}?">?</button>
+    <span class="tip" role="tooltip">${e.generic ? `<b>${esc(e.generic)}</b>` : ''}${e.use ? `<span>${esc(e.use)}</span>` : ''}</span></span>`;
+}
+
 function medCardHTML(e) {
   const btn = st => `<button type="button" class="${st} ${e.state === st ? 'on' : ''}" data-action="setstate" data-id="${esc(e.medId)}" data-state="${st}"
       aria-pressed="${e.state === st}"><b>${STATES[st].icon}</b>${STATES[st].label}</button>`;
   return `<article class="med s-${e.state}">
     <div class="med-top">${e.time ? `<span class="time">${fmtHour(e.time)}</span>` : `<span class="time">${esc(e.icon)}</span>`}
-      <div class="med-info"><strong>${esc(e.name)}</strong>${e.dose ? `<span>${esc(e.dose)}</span>` : ''}${e.notes ? `<em>${esc(e.notes)}</em>` : ''}</div></div>
+      <div class="med-info"><strong>${esc(e.name)}${e.alert ? ` <button type="button" class="alert-btn" data-action="med-alert" data-id="${esc(e.medId)}" aria-label="Aviso sobre ${esc(e.name)}">${icon('alert', 'sm')}</button>` : ''}${infoHTML(e)}</strong>${e.dose ? `<span>${esc(e.dose)}</span>` : ''}${e.notes ? `<em>${esc(e.notes)}</em>` : ''}</div>
+      <button type="button" class="icon-btn" style="margin-left:auto" data-action="med-edit" data-id="${esc(e.medId)}" aria-label="Editar medicamento">${icon('edit', 'sm')}</button></div>
     <div class="states">${btn('ok')}${btn('no')}${btn('pending')}</div></article>`;
 }
 
@@ -251,6 +284,7 @@ function viewPlantao() {
   const c = countStates(s);
   const groups = medsByPeriod(s);
   return `
+  ${catalogError ? `<p class="warn">⚠️ ${esc(catalogError)}</p>` : ''}
   ${storageOk ? '' : '<p class="warn">⚠️ Este navegador não permite salvar dados. Use o backup (Ajustes) com frequência.</p>'}
   <section class="card">
     <label class="field"><span>Responsável pelo plantão</span>
@@ -264,7 +298,7 @@ function viewPlantao() {
   <section class="card">
     <div class="card-title"><h2>💊 Medicamentos</h2></div>
     ${groups.length ? groups.map(g => `<h3 class="period-h">${PERIOD_ICON[g.period]} ${PERIOD_LABEL[g.period]}</h3>${g.items.map(medCardHTML).join('')}`).join('')
-      : `<p class="empty">Nenhum medicamento cadastrado para o plantão ${SHIFTS[s.shift].toLowerCase()}.<br>Cadastre em <b>Ajustes</b>.</p>`}
+      : `<p class="empty">Nenhum medicamento cadastrado para o plantão ${SHIFTS[s.shift].toLowerCase()}.<br>Edite <b>data/medicamentos.json</b>.</p>`}
     ${groups.length ? `<div class="chips"><span class="chip ok">✅ ${c.ok}</span><span class="chip no">❌ ${c.no}</span><span class="chip pending">⏳ ${c.pending}</span></div>` : ''}
   </section>
 
@@ -290,7 +324,7 @@ function viewSettings() {
     return `<h3 class="period-h">${label}</h3>${items.map(m => `
       <div class="list-item"><span class="time">${m.time ? fmtHour(m.time) : esc(m.icon)}</span>
         <div class="grow"><strong>${esc(m.name)}</strong>
-          <span class="badge">${PERIOD_LABEL[m.period]}</span>${m.dose ? `<span class="muted">${esc(m.dose)}</span>` : ''}
+          <span class="badge">${PERIOD_LABEL[m.period]}</span>${isChanged('meds', m.id) ? '<span class="badge">alterado</span>' : ''}${m.dose ? `<span class="muted">${esc(m.dose)}</span>` : ''}
           ${m.notes ? `<div class="muted">${esc(m.notes)}</div>` : ''}</div>
         <button class="icon-btn" data-action="med-edit" data-id="${m.id}" aria-label="Editar">${icon('edit', 'sm')}</button>
         <button class="icon-btn del" data-action="med-del" data-id="${m.id}" aria-label="Excluir">${icon('trash', 'sm')}</button></div>`).join('')}`;
@@ -298,7 +332,7 @@ function viewSettings() {
   return `
   <section class="card">
     <div class="card-title"><h2>💊 Medicamentos</h2><button class="btn small primary" data-action="med-new">${icon('plus', 'sm')} Novo</button></div>
-    <p class="muted">Cadastrados uma vez e usados em todos os plantões. Alterações valem para plantões de hoje em diante; plantões antigos não mudam.</p>
+    <p class="muted">A lista base vem de <b>data/medicamentos.json</b>. Suas edições ficam salvas só neste aparelho, por cima dela.</p>
     ${medGroups || '<p class="empty">Nenhum medicamento cadastrado.</p>'}
   </section>
   <section class="card">
@@ -307,6 +341,9 @@ function viewSettings() {
       <button class="icon-btn" data-action="type-edit" data-id="${t.id}" aria-label="Editar">${icon('edit', 'sm')}</button>
       <button class="icon-btn del" data-action="type-del" data-id="${t.id}" aria-label="Excluir">${icon('trash', 'sm')}</button></div>`).join('')
       : '<p class="empty">Nenhum tipo cadastrado.</p>'}
+  </section>
+  <section class="card">
+    <button class="btn block" data-action="restore-defaults">Restaurar lista padrão (JSON)</button>
   </section>
   <section class="card">
     <div class="card-title"><h2>💾 Backup</h2></div>
@@ -377,7 +414,7 @@ async function copyText(text, ta) {
 function measureDialog(s, m) {
   const types = db.types.slice();
   if (m && m.typeId && !types.some(t => t.id === m.typeId)) types.push({ id: m.typeId, name: m.typeName + ' (removido)', unit: m.unit });
-  if (!types.length) { toast('Cadastre um tipo de aferição em Ajustes'); return; }
+  if (!types.length) { toast('Nenhum tipo de aferição em data/medicamentos.json'); return; }
   const sel = m ? m.typeId : types[0].id;
   const d = formDialog({
     title: m ? 'Editar aferição' : 'Adicionar aferição',
@@ -411,15 +448,19 @@ function medDialog(m) {
         <label class="field"><span>Período</span><select name="period">${PERIODS.map(p => opt(p, PERIOD_LABEL[p], m ? m.period : 'manha')).join('')}</select></label>
         <label class="field"><span>Plantão</span><select name="shift">${opt('D', 'Diurno', m ? m.shift : 'D')}${opt('N', 'Noturno', m ? m.shift : 'D')}${opt('A', 'Diurno e noturno', m ? m.shift : 'D')}</select></label>
       </div>
-      <label class="field"><span>Instruções adicionais (opcional)</span><input name="notes" type="text" autocomplete="off" value="${esc(m ? m.notes : '')}"></label>`,
+      <label class="field"><span>Instruções adicionais (opcional)</span><input name="notes" type="text" autocomplete="off" value="${esc(m ? m.notes : '')}"></label>
+      <label class="field"><span>Aviso (opcional — mostra um ⚠️ no remédio)</span><input name="alert" type="text" autocomplete="off" value="${esc(m ? m.alert : '')}"></label>
+      <p class="hint">Alterações ficam salvas só neste aparelho; o arquivo JSON não é modificado.</p>`,
     onSubmit(fd) {
-      const rec = { name: fd.get('name').trim(), time: fd.get('time'), dose: fd.get('dose').trim(), period: fd.get('period'), shift: fd.get('shift'), notes: fd.get('notes').trim() };
-      if (m) Object.assign(m, rec); else db.meds.push({ id: uid(), icon: '💊', ...rec });
-      save(); render(); toast('Medicamento salvo');
+      const rec = { name: fd.get('name').trim(), time: fd.get('time'), dose: fd.get('dose').trim(), period: fd.get('period'), shift: fd.get('shift'), notes: fd.get('notes').trim(), alert: fd.get('alert').trim() };
+      saveItem('meds', m, rec, { icon: '💊' });
+      toast('Medicamento salvo');
     }
   });
-  const time = d.querySelector('[name=time]'), period = d.querySelector('[name=period]');
-  time.addEventListener('change', () => { if (!time.value) return; const h = +time.value.slice(0, 2); period.value = h < 12 ? 'manha' : h < 18 ? 'tarde' : 'noite'; });
+  const time = d.querySelector('[name=time]'), period = d.querySelector('[name=period]'), shift = d.querySelector('[name=shift]');
+  const sync = () => { if (shift.value !== 'A') shift.value = period.value === 'noite' ? 'N' : 'D'; };
+  time.addEventListener('change', () => { if (!time.value) return; const h = +time.value.slice(0, 2); period.value = h < 12 ? 'manha' : h < 18 ? 'tarde' : 'noite'; sync(); });
+  period.addEventListener('change', sync);
 }
 
 function typeDialog(t) {
@@ -427,13 +468,32 @@ function typeDialog(t) {
     title: t ? 'Editar tipo de aferição' : 'Novo tipo de aferição',
     body: `<label class="field"><span>Nome</span><input name="name" type="text" required autocomplete="off" placeholder="Ex.: Pressão arterial" value="${esc(t ? t.name : '')}"></label>
       <label class="field"><span>Unidade de medida</span><input name="unit" type="text" autocomplete="off" placeholder="Ex.: mmHg" value="${esc(t ? t.unit : '')}"></label>`,
-    onSubmit(fd) {
-      const rec = { name: fd.get('name').trim(), unit: fd.get('unit').trim() };
-      if (t) Object.assign(t, rec); else db.types.push({ id: uid(), ...rec });
-      save(); render(); toast('Tipo salvo');
-    }
+    onSubmit(fd) { saveItem('types', t, { name: fd.get('name').trim(), unit: fd.get('unit').trim() }); toast('Tipo salvo'); }
   });
 }
+
+/* Salva um item (medicamento/tipo) por cima do JSON: item do JSON vira "edição"; item criado aqui é atualizado direto. */
+function saveItem(kind, item, rec, defaults = {}) {
+  const ov = db.ov[kind];
+  if (!item) ov.custom.push({ id: 'c-' + uid(), ...defaults, ...rec });
+  else {
+    const i = ov.custom.findIndex(x => x.id === item.id);
+    if (i >= 0) ov.custom[i] = { ...ov.custom[i], ...rec };
+    else {
+      const base = db.base[kind].find(x => x.id === item.id) || {};
+      const ch = {}; Object.keys(rec).forEach(k => { if (rec[k] !== base[k]) ch[k] = rec[k]; });
+      if (Object.keys(ch).length) ov.edits[item.id] = ch; else delete ov.edits[item.id];
+    }
+  }
+  rebuildLists(db); save(); render();
+}
+function deleteItem(kind, item) {
+  const ov = db.ov[kind];
+  if (ov.custom.some(x => x.id === item.id)) ov.custom = ov.custom.filter(x => x.id !== item.id);
+  else { ov.hidden.push(item.id); delete ov.edits[item.id]; }
+  rebuildLists(db); save(); render();
+}
+const isChanged = (kind, id) => db.ov[kind].edits[id] || db.ov[kind].custom.some(x => x.id === id);
 
 /* ---------- 7. Ações ---------- */
 function mergeShift(a, b) {
@@ -447,8 +507,6 @@ function mergeShift(a, b) {
   });
 }
 function mergeData(inc) {
-  inc.meds.forEach(m => { if (!db.meds.some(x => x.id === m.id)) db.meds.push(m); });
-  inc.types.forEach(t => { if (!db.types.some(x => x.id === t.id)) db.types.push(t); });
   Object.values(inc.shifts).forEach(s => { if (db.shifts[s.key]) mergeShift(db.shifts[s.key], s); else db.shifts[s.key] = s; });
   if (!db.lastResponsible) db.lastResponsible = inc.lastResponsible;
 }
@@ -471,7 +529,7 @@ async function importBackup(file) {
   } catch (e) { toast('❌ Arquivo de backup inválido'); return; }
   const n = Object.keys(inc.shifts).length;
   const d = openDialog(`<div class="dlg-body"><h2>Importar backup</h2>
-    <p>O arquivo contém <b>${n}</b> plantão(ões), <b>${inc.meds.length}</b> medicamento(s) e <b>${inc.types.length}</b> tipo(s) de aferição.</p>
+    <p>O arquivo contém <b>${n}</b> plantão(ões) e as edições de medicamentos feitas neste aparelho. A lista base continua vindo de data/medicamentos.json.</p>
     <p class="muted"><b>Mesclar</b> mantém seus dados e acrescenta os do arquivo. <b>Substituir</b> apaga tudo o que está neste aparelho.</p>
     <div class="dlg-actions"><button class="btn" data-action="close">Cancelar</button>
     <button class="btn danger" data-v="replace">Substituir tudo</button><button class="btn primary" data-v="merge">Mesclar</button></div></div>`);
@@ -479,7 +537,7 @@ async function importBackup(file) {
     const b = e.target.closest('[data-v]'); if (!b) return;
     if (b.dataset.v === 'replace') {
       if (!(await confirmBox('Todos os dados atuais deste aparelho serão apagados e trocados pelos do backup. Continuar?', 'Substituir'))) return;
-      db = inc;
+      inc.base = db.base; rebuildLists(inc); db = inc;
     } else mergeData(inc);
     draft = null; save(); d.close(); render(); toast('Backup importado');
   });
@@ -514,20 +572,27 @@ const actions = {
     const text = $('#report-text', el.closest('dialog')).value;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   },
+  'med-alert': el => {
+    const m = currentShift().meds.find(x => x.medId === el.dataset.id); if (!m || !m.alert) return;
+    openDialog(`<div class="dlg-body"><h2>⚠️ ${esc(m.name)}</h2><p style="white-space:pre-wrap">${esc(m.alert)}</p>
+      <div class="dlg-actions"><button class="btn primary" data-action="close">Entendi</button></div></div>`, true);
+  },
+  'med-info': el => el.closest('.info').classList.toggle('open'),
   'med-new': () => medDialog(null),
-  'med-edit': el => medDialog(db.meds.find(m => m.id === el.dataset.id)),
+  'med-edit': el => { const m = db.meds.find(x => x.id === el.dataset.id); if (m) medDialog(m); },
   'med-del': async el => {
     const m = db.meds.find(x => x.id === el.dataset.id); if (!m) return;
-    if (await confirmBox(`Excluir o medicamento <b>${esc(m.name)}</b> (${fmtHour(m.time)})?<br><span class="muted">Plantões já registrados não são alterados.</span>`)) {
-      db.meds = db.meds.filter(x => x.id !== m.id); save(); render(); toast('Medicamento excluído');
-    }
+    if (await confirmBox(`Excluir o medicamento <b>${esc(m.name)}</b> (${fmtHour(m.time) || 'sem horário'})?<br><span class="muted">Fica excluído só neste aparelho; "Restaurar lista padrão" traz de volta.</span>`)) { deleteItem('meds', m); toast('Medicamento excluído'); }
   },
   'type-new': () => typeDialog(null),
-  'type-edit': el => typeDialog(db.types.find(t => t.id === el.dataset.id)),
+  'type-edit': el => { const t = db.types.find(x => x.id === el.dataset.id); if (t) typeDialog(t); },
   'type-del': async el => {
     const t = db.types.find(x => x.id === el.dataset.id); if (!t) return;
-    if (await confirmBox(`Excluir o tipo de aferição <b>${esc(t.name)}</b>?<br><span class="muted">Registros já feitos continuam nos plantões.</span>`)) {
-      db.types = db.types.filter(x => x.id !== t.id); save(); render(); toast('Tipo excluído');
+    if (await confirmBox(`Excluir o tipo de aferição <b>${esc(t.name)}</b>?<br><span class="muted">Registros já feitos continuam nos plantões.</span>`)) { deleteItem('types', t); toast('Tipo excluído'); }
+  },
+  'restore-defaults': async () => {
+    if (await confirmBox('Descartar todas as edições, exclusões e itens criados neste aparelho e voltar à lista do arquivo JSON?', 'Restaurar', false)) {
+      db.ov = { meds: emptyOv(), types: emptyOv() }; rebuildLists(db); save(); render(); toast('Lista padrão restaurada');
     }
   },
   export: exportBackup,
@@ -535,6 +600,7 @@ const actions = {
 };
 
 document.addEventListener('click', e => {
+  document.querySelectorAll('.info.open').forEach(x => { if (!x.contains(e.target)) x.classList.remove('open'); });
   const el = e.target.closest('[data-action]');
   if (el && actions[el.dataset.action]) actions[el.dataset.action](el);
 });
@@ -553,4 +619,4 @@ document.addEventListener('change', e => {
 });
 
 /* ---------- 8. Início ---------- */
-render();
+loadCatalog().then(render);
