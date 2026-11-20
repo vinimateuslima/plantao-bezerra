@@ -40,7 +40,7 @@
       "generico": "Losartana potássica", "paraQueServe": "Controla a pressão alta e protege o coração e os rins." },
     { "nome": "Dexclorfeniramina", "horario": "22:00", "dose": "1cp", "periodo": "noite",
       "generico": "Dexclorfeniramina", "paraQueServe": "Anti-histamínico. Alivia alergia e coceira; pode causar sono." },
-    { "nome": "Colchicina", "horario": "22:00", "dose": "1cp", "periodo": "noite",
+    { "nome": "Colchicina", "horario": "21:00", "dose": "1cp", "periodo": "noite",
       "generico": "Colchicina", "paraQueServe": "Anti-inflamatório usado para tratar e prevenir crises de gota." },
     { "nome": "Quetiapina", "horario": "22:00", "dose": "1/2cp", "periodo": "noite", "obs": "se insônia",
       "generico": "Quetiapina", "paraQueServe": "Antipsicótico. Em dose baixa, ajuda no sono e na agitação." }
