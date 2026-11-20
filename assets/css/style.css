@@ -131,3 +131,15 @@ dialog.sheet::backdrop{background:rgba(5,15,20,.55)}
 #toast.show{opacity:1;transform:translateX(-50%)}
 .warn{background:var(--pen-soft);color:var(--pen);padding:10px 14px;border-radius:12px;font-weight:600;font-size:.9rem}
 @media (min-width:700px){ .states button{flex-direction:row;gap:6px;font-size:.85rem} }
+
+/* ========== Prontuário ========== */
+.pt-name{font-size:1.3rem;font-weight:800;line-height:1.2;margin-bottom:2px;overflow-wrap:anywhere}
+.kv{margin:10px 0 0;display:flex;flex-direction:column}
+.kv-row{display:grid;grid-template-columns:minmax(96px,34%) 1fr;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line)}
+.kv-row:last-child{border-bottom:0}
+.kv dt{color:var(--muted);font-size:.85rem;font-weight:600}
+.kv dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.kv a{color:var(--brand)}
+.allergy{border-radius:12px;padding:10px 14px;margin-bottom:4px}
+.allergy.ok{background:var(--ok-soft);color:var(--ok)}
+.allergy.bad{background:var(--no-soft);color:var(--no)}

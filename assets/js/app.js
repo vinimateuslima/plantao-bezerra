@@ -25,6 +25,7 @@ const ICONS = {
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/>',
   alert:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
   share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
+  prontuario:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><circle cx="12" cy="12" r="2.5"/><path d="M7.5 18c.7-2 2.4-3 4.5-3s3.8 1 4.5 3"/>',
   report:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>'
 };
 const icon = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -69,6 +70,22 @@ function rebuildLists(o) { o.meds = applyOv(o.base.meds, o.ov.meds); o.types = a
    A lista de medicamentos e de tipos de aferição vem desse arquivo. */
 const CATALOG_URL = 'data/medicamentos.json';
 let catalogError = '';
+
+/* ---------- Prontuário (data/prontuario.json) ---------- */
+const PRONT_URL = 'data/prontuario.json', PRONT_KEY = 'plantao-bezerra.prontuario.v1';
+let pront = null, prontError = '';
+async function loadProntuario() {
+  try {
+    const r = await fetch(PRONT_URL, { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    pront = await r.json(); prontError = '';
+    try { localStorage.setItem(PRONT_KEY, JSON.stringify(pront)); } catch (e) { /* sem cache */ }
+  } catch (e) {
+    console.warn('Falha ao ler ' + PRONT_URL, e);
+    try { pront = JSON.parse(localStorage.getItem(PRONT_KEY)); } catch (e2) { pront = null; }
+    prontError = 'Não foi possível carregar data/prontuario.json.' + (pront ? ' Mostrando a última ficha salva neste aparelho.' : '');
+  }
+}
 const slug = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 function uniqueId(base, used) { let id = base, n = 2; while (used.has(id)) id = `${base}-${n++}`; used.add(id); return id; }
 
@@ -317,6 +334,89 @@ function viewPlantao() {
   <button class="btn primary block" style="min-height:56px;font-size:1.05rem" data-action="report" data-key="${esc(s.key)}">${icon('report')} Gerar relatório</button>`;
 }
 
+function fmtPhone(t) {
+  const d = String(t || '').replace(/\D/g, '');
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return String(t || '');
+}
+function ageFrom(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); if (!m) return '';
+  const n = new Date(); let a = n.getFullYear() - +m[1];
+  if (n.getMonth() + 1 < +m[2] || (n.getMonth() + 1 === +m[2] && n.getDate() < +m[3])) a--;
+  return a >= 0 ? `${a} anos` : '';
+}
+function daysSince(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); if (!m) return null;
+  const t = new Date(), a = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()), b = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  return Math.max(0, Math.round((a - b) / 86400000));
+}
+const roomLine = () => { const i = (pront && pront.internacao) || {}; return [i.quarto ? `Quarto ${i.quarto}` : '', str(i.andar)].filter(Boolean).join(' · '); };
+
+function viewProntuario() {
+  const P = pront || {}, pa = P.paciente || {}, en = pa.endereco || {}, it = P.internacao || {}, al = P.alergias || {}, sa = P.saude || {}, cv = P.convenio || {};
+  const dash = '<span class="muted">—</span>';
+  const kv = (k, v, tel) => `<div class="kv-row"><dt>${k}</dt><dd>${v ? (tel ? `<a href="tel:${esc(String(v).replace(/[^\d+]/g, ''))}">${esc(v)}</a>` : esc(v)) : dash}</dd></div>`;
+  const chips = list => arr(list).filter(x => str(x).trim()).length ? `<div class="chips" style="margin:0">${arr(list).filter(x => str(x).trim()).map(x => `<span class="chip neutral">${esc(x)}</span>`).join('')}</div>` : dash;
+  const addr = [[en.logradouro, en.numero].filter(Boolean).join(', '), en.complemento, en.bairro, [en.cidade, en.uf].filter(Boolean).join(' - '), en.cep && 'CEP ' + en.cep].filter(Boolean).join(' · ');
+  const nasc = /^\d{4}-\d{2}-\d{2}/.test(str(pa.dataNascimento)) ? fmtDate(pa.dataNascimento.slice(0, 10)) : '';
+  const dt = /^\d{4}-\d{2}-\d{2}/.test(str(it.dataAtendimento)) ? `${fmtDate(it.dataAtendimento.slice(0, 10))}${it.dataAtendimento.slice(11, 16) ? ' às ' + it.dataAtendimento.slice(11, 16) : ''}` : '';
+  const dias = daysSince(it.dataAtendimento);
+  const meds = arr(al.medicamentos).filter(x => str(x).trim());
+  const allergy = meds.length
+    ? `<div class="allergy bad"><b>⚠️ Alergia a medicamentos</b><br>${meds.map(esc).join(', ')}</div>`
+    : al.semAlergiaMedicamentosa === true ? '<div class="allergy ok"><b>✅ Sem alergia a medicamentos</b></div>'
+    : '<p class="muted">Alergias a medicamentos: não informado.</p>';
+  const contacts = arr(P.contatos).filter(c => c && (str(c.nome).trim() || str(c.telefone).trim()));
+  return `
+  ${prontError ? `<p class="warn">⚠️ ${esc(prontError)}</p>` : ''}
+  <section class="card">
+    <div class="card-title"><h2>👤 Paciente</h2></div>
+    <p class="pt-name">${esc(pa.nomeCompleto) || 'Nome não informado'}</p>
+    <p class="muted" style="margin-bottom:10px">${[ageFrom(pa.dataNascimento), nasc && 'nasc. ' + nasc, pa.sexo].filter(Boolean).map(esc).join(' · ')}</p>
+    ${allergy}
+    <dl class="kv">
+      ${kv('Nome da mãe', pa.nomeMae)}${kv('CNS (Cartão SUS)', pa.cns)}
+      ${kv('Telefone', fmtPhone(pa.telefone), true)}${kv('Endereço', addr)}
+    </dl>
+  </section>
+
+  <section class="card">
+    <div class="card-title"><h2>🏥 Internação</h2></div>
+    <dl class="kv">
+      ${kv('Hospital', it.hospital)}${kv('Clínica', it.clinica)}${kv('Quarto', [it.quarto, it.andar].filter(Boolean).join(' · '))}
+      ${kv('Prontuário nº', it.prontuario)}${kv('Atendimento nº', it.atendimento)}
+      ${kv('Entrada', dt + (dias != null && dt ? ` (há ${dias} dia${dias === 1 ? '' : 's'})` : ''))}
+      ${kv('Motivo da internação', it.motivoInternacao)}${kv('Diagnóstico principal', it.diagnosticoPrincipal)}
+      ${kv('Médico responsável', it.medicoResponsavel)}${kv('Previsão de alta', it.previsaoAlta)}
+    </dl>
+  </section>
+
+  <section class="card">
+    <div class="card-title"><h2>🩺 Saúde</h2></div>
+    <dl class="kv">
+      ${kv('Tipo sanguíneo', sa.tipoSanguineo)}${kv('Peso', sa.pesoKg && sa.pesoKg + ' kg')}${kv('Altura', sa.alturaCm && sa.alturaCm + ' cm')}
+      <div class="kv-row"><dt>Comorbidades</dt><dd>${chips(sa.comorbidades)}</dd></div>
+      <div class="kv-row"><dt>Cirurgias prévias</dt><dd>${chips(sa.cirurgiasPrevias)}</dd></div>
+      <div class="kv-row"><dt>Outras alergias</dt><dd>${chips(al.outras)}</dd></div>
+      ${kv('Dieta', sa.dieta)}${kv('Mobilidade', sa.mobilidade)}${kv('Risco de queda', sa.riscoQueda)}
+      ${kv('Obs. clínicas', sa.observacoesClinicas)}
+    </dl>
+  </section>
+
+  <section class="card">
+    <div class="card-title"><h2>📞 Contatos</h2></div>
+    ${contacts.length ? contacts.map(c => `<div class="list-item"><div class="grow"><strong>${esc(c.nome) || 'Sem nome'}</strong><span class="muted">${esc(c.parentesco)}</span></div>${c.telefone ? `<a class="btn small" href="tel:${esc(String(c.telefone).replace(/[^\d+]/g, ''))}">${esc(fmtPhone(c.telefone))}</a>` : ''}</div>`).join('')
+      : '<p class="empty">Nenhum contato cadastrado.</p>'}
+  </section>
+
+  <section class="card">
+    <div class="card-title"><h2>🧾 Convênio e observações</h2></div>
+    <dl class="kv">${kv('Plano / convênio', cv.plano)}${kv('Carteirinha', cv.carteirinha)}${kv('Observações', P.observacoes)}</dl>
+    <p class="hint" style="margin:8px 0 0">Informações lidas de data/prontuario.json.</p>
+  </section>`;
+}
+
 function viewSettings() {
   const medGroups = [['D', 'Diurno'], ['N', 'Noturno'], ['A', 'Diurno e noturno']].map(([k, label]) => {
     const items = db.meds.filter(m => m.shift === k).sort((a, b) => PERIODS.indexOf(a.period) - PERIODS.indexOf(b.period) || byTime(a, b));
@@ -354,13 +454,14 @@ function viewSettings() {
 
 function render() {
   const y = window.scrollY;
-  $('#view').innerHTML = { plantao: viewPlantao, ajustes: viewSettings }[tab]();
+  $('#view').innerHTML = { plantao: viewPlantao, prontuario: viewProntuario, ajustes: viewSettings }[tab]();
   document.querySelectorAll('#tabbar button').forEach(b => {
     b.classList.toggle('on', b.dataset.v === tab);
     b.querySelector('svg').innerHTML = ICONS[b.dataset.v];
     b.querySelector('svg').setAttribute('viewBox', '0 0 24 24');
   });
-  $('#hdr-sub').textContent = tab === 'plantao' ? `${SHIFTS[cur.shift]} · ${fmtDate(cur.date)}` : 'Medicamentos, aferições e backup';
+  $('#hdr-sub').textContent = tab === 'plantao' ? `${SHIFTS[cur.shift]} · ${fmtDate(cur.date)}` : tab === 'prontuario' ? 'Prontuário / ficha do paciente' : 'Medicamentos, aferições e backup';
+  const room = roomLine(); $('#hdr-room').textContent = room;
   window.scrollTo(0, y);
 }
 
@@ -633,4 +734,4 @@ document.addEventListener('change', e => {
 });
 
 /* ---------- 8. Início ---------- */
-loadCatalog().then(render);
+Promise.all([loadCatalog(), loadProntuario()]).then(render);

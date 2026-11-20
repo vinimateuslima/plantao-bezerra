@@ -1,0 +1,64 @@
+{
+  "_ajuda": "Ficha do paciente. Edite este arquivo e recarregue o app. Campos vazios (\"\" ou []) aparecem como traco na aba Prontuario. Datas: AAAA-MM-DD (dataAtendimento: AAAA-MM-DDTHH:MM). Listas: contatos, comorbidades etc. aceitam varios itens.",
+
+  "paciente": {
+    "nomeCompleto": "Manoel Bezerra de Lima",
+    "dataNascimento": "1946-04-12",
+    "sexo": "Masculino",
+    "nomeMae": "Severina Bezerra de Melo",
+    "cns": "700006828504407",
+    "telefone": "81984068920",
+    "endereco": {
+      "logradouro": "Rua Vazante",
+      "numero": "15",
+      "complemento": "",
+      "bairro": "Iputinga",
+      "cidade": "Recife",
+      "uf": "PE",
+      "cep": ""
+    }
+  },
+
+  "internacao": {
+    "hospital": "Hospital Agamenon Magalhães (HAM)",
+    "clinica": "Clínica Cardio 1º A",
+    "andar": "3º andar",
+    "quarto": "302",
+    "prontuario": "129101",
+    "atendimento": "2192676",
+    "dataAtendimento": "2026-10-10T10:11",
+    "motivoInternacao": "",
+    "diagnosticoPrincipal": "",
+    "medicoResponsavel": "",
+    "previsaoAlta": ""
+  },
+
+  "alergias": {
+    "semAlergiaMedicamentosa": true,
+    "medicamentos": [],
+    "outras": []
+  },
+
+  "saude": {
+    "tipoSanguineo": "",
+    "pesoKg": "",
+    "alturaCm": "",
+    "comorbidades": [],
+    "cirurgiasPrevias": [],
+    "dieta": "",
+    "mobilidade": "",
+    "riscoQueda": "",
+    "observacoesClinicas": ""
+  },
+
+  "convenio": {
+    "plano": "",
+    "carteirinha": ""
+  },
+
+  "contatos": [
+    { "nome": "", "parentesco": "", "telefone": "" }
+  ],
+
+  "observacoes": ""
+}
