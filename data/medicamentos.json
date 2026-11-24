@@ -30,7 +30,7 @@
       "generico": "Budesonida", "paraQueServe": "Corticoide nasal. Reduz a inflamação e o inchaço do nariz (rinite)." },
     { "nome": "NeovangyMR", "horario": "20:00", "dose": "1cp", "periodo": "noite",
       "generico": "Trimetazidina", "paraQueServe": "Antianginoso. Protege o músculo do coração e ajuda a reduzir crises de angina (dor no peito)." },
-    { "nome": "Enoxaparina (Injeção na Barriga)", "horario": "21:00", "dose": "", "periodo": "noite", "icone": "💉",
+    { "nome": "Enoxaparina (Injeção na barriga)", "horario": "21:00", "dose": "", "periodo": "noite", "icone": "💉",
       "generico": "Enoxaparina sódica", "paraQueServe": "Anticoagulante injetável. Previne e trata trombose (coágulos nas veias)." },
     { "nome": "Atorvastatina 10mg", "horario": "21:00", "dose": "4cp", "periodo": "noite",
       "generico": "Atorvastatina cálcica", "paraQueServe": "Estatina. Reduz o colesterol e o risco de infarto e AVC." },
