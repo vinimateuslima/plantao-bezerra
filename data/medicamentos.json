@@ -50,6 +50,6 @@
     { "nome": "Saturação",        "unidade": "%" },
     { "nome": "Batimentos",       "unidade": "bpm" },
     { "nome": "Temperatura",      "unidade": "°C" },
-        { "nome": "Peso",       "unidade": "kg" },
+        { "nome": "Peso",       "unidade": "kg" }
   ]
 }
