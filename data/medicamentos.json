@@ -16,8 +16,6 @@
       "generico": "Dexametasona (uso tópico)", "paraQueServe": "Corticoide para a pele. Reduz inflamação, vermelhidão e coceira." },
     { "nome": "Pomada na barriga", "horario": "", "dose": "", "periodo": "manha", "icone": "🧴" },
 
-    { "nome": "Clopidogrel", "horario": "14:00", "dose": "1cp", "periodo": "tarde",
-      "generico": "Clopidogrel", "paraQueServe": "Antiplaquetário. Evita a formação de coágulos, prevenindo infarto e AVC." },
     { "nome": "AAS", "horario": "14:00", "dose": "1cp", "periodo": "tarde",
       "generico": "Ácido acetilsalicílico", "paraQueServe": "Em dose baixa, deixa o sangue menos “grudento” e previne coágulos no coração e no cérebro." },
 
@@ -51,6 +49,7 @@
     { "nome": "Glicose",          "unidade": "mg/dL" },
     { "nome": "Saturação",        "unidade": "%" },
     { "nome": "Batimentos",       "unidade": "bpm" },
-    { "nome": "Temperatura",      "unidade": "°C" }
+    { "nome": "Temperatura",      "unidade": "°C" },
+        { "nome": "Peso",       "unidade": "kg" },
   ]
 }
